@@ -1,3 +1,6 @@
+import { raycastDDA } from './player/Raycast.js';
+import { Hotbar } from './ui/Hotbar.js';
+import { BLOCKS } from './constants.js'; // Asegúrate de importar BLOCKS
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
 import { World } from './world/World.js';
 import { Player } from './player/Player.js';
