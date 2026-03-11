@@ -19,7 +19,6 @@ export class MobileControls {
 
     initUI() {
         document.getElementById('mobile-controls').style.display = 'block';
-        // En móvil, tocar la pantalla de pausa quita el menú pero no bloquea el cursor
         const pauseScreen = document.getElementById('pause-screen');
         pauseScreen.addEventListener('touchstart', (e) => {
             e.preventDefault();
@@ -58,7 +57,7 @@ export class MobileControls {
                     let dx = touch.clientX - centerX;
                     let dy = touch.clientY - centerY;
                     let distance = Math.sqrt(dx * dx + dy * dy);
-                    let maxDist = rect.width / 2 - 25; // 25 es la mitad del stick
+                    let maxDist = rect.width / 2 - 25;
 
                     if (distance > maxDist) {
                         dx = (dx / distance) * maxDist;
@@ -67,7 +66,6 @@ export class MobileControls {
 
                     stick.style.transform = `translate(${dx}px, ${dy}px)`;
 
-                    // Traducir a teclado virtual para el Player
                     let threshold = 15;
                     this.player.keys.w = dy < -threshold;
                     this.player.keys.s = dy > threshold;
@@ -86,10 +84,8 @@ export class MobileControls {
     }
 
     initLook() {
-        // Deslizar el dedo por la pantalla (fuera de los controles) rota la cámara
         document.addEventListener('touchstart', (e) => {
             if (!this.touchLookEnabled) return;
-            // Evitar conflictos con joystick o botones
             if (e.target.closest('#mobile-controls') || e.target.closest('#inventory-screen') || e.target.closest('#hotbar')) return;
             
             this.lookTouchId = e.changedTouches[0].identifier;
@@ -106,7 +102,6 @@ export class MobileControls {
                     let deltaX = touch.clientX - this.lastTouchX;
                     let deltaY = touch.clientY - this.lastTouchY;
 
-                    // Despachar un evento falso de movimiento de ratón para que main.js lo capture
                     const mouseEvent = new MouseEvent('mousemove', {
                         movementX: deltaX * 1.5,
                         movementY: deltaY * 1.5
@@ -137,30 +132,31 @@ export class MobileControls {
 
         btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); this.player.keys.space = true; });
         btnJump.addEventListener('touchend', (e) => { e.preventDefault(); this.player.keys.space = false; });
+        btnJump.addEventListener('touchcancel', (e) => { e.preventDefault(); this.player.keys.space = false; });
 
-        // Eventos sintéticos para minar y colocar (simulan clics izquierdo y derecho)
-        const dispatchMouse = (buttonType) => {
+        const dispatchMouse = (type, buttonType) => {
             if(!this.touchLookEnabled) return;
-            const mouseEvent = new MouseEvent('mousedown', { button: buttonType });
+            const mouseEvent = new MouseEvent(type, { button: buttonType });
             document.dispatchEvent(mouseEvent);
-            setTimeout(() => { document.dispatchEvent(new MouseEvent('mouseup', { button: buttonType })); }, 50);
         };
 
-        btnMine.addEventListener('touchstart', (e) => { e.preventDefault(); dispatchMouse(0); });
-        btnPlace.addEventListener('touchstart', (e) => { e.preventDefault(); dispatchMouse(2); });
+        // ARREGLO DEL MINADO: Ahora puedes mantener pulsado el botón táctil
+        btnMine.addEventListener('touchstart', (e) => { e.preventDefault(); dispatchMouse('mousedown', 0); });
+        btnMine.addEventListener('touchend', (e) => { e.preventDefault(); dispatchMouse('mouseup', 0); });
+        btnMine.addEventListener('touchcancel', (e) => { e.preventDefault(); dispatchMouse('mouseup', 0); });
 
-        // Inventario
+        btnPlace.addEventListener('touchstart', (e) => { e.preventDefault(); dispatchMouse('mousedown', 2); });
+        btnPlace.addEventListener('touchend', (e) => { e.preventDefault(); dispatchMouse('mouseup', 2); });
+        btnPlace.addEventListener('touchcancel', (e) => { e.preventDefault(); dispatchMouse('mouseup', 2); });
+
         btnInv.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            const invScreen = document.getElementById('inventory-screen');
-            if (invScreen.style.display === 'flex') {
-                invScreen.style.display = 'none';
-                this.touchLookEnabled = true;
-            } else {
-                invScreen.style.display = 'flex';
-                this.touchLookEnabled = false;
-                this.player.keys = { w: false, a: false, s: false, d: false, space: false };
-            }
+            // Simula pulsar la tecla 'X' de PC para abrir el inventario
+            document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyX' }));
+            setTimeout(() => {
+                const invScreen = document.getElementById('inventory-screen');
+                this.touchLookEnabled = (invScreen.style.display !== 'flex');
+            }, 10);
         });
     }
 }
