@@ -2,10 +2,10 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 import { BLOCKS } from '../constants.js';
 
 const MOB_COLORS = {
-    pig: 0xf0a5a2,     // Rosa
-    sheep: 0xeaddda,   // Blanco roto / Grisáceo
-    cow: 0x4d494d,     // Gris oscuro / Negro
-    chicken: 0xffffff  // Blanco puro
+    pig: 0xf0a5a2,     
+    sheep: 0xeaddda,   
+    cow: 0x4d494d,     
+    chicken: 0xffffff  
 };
 
 export class MobManager {
@@ -13,7 +13,7 @@ export class MobManager {
         this.scene = scene;
         this.world = world;
         this.mobs = [];
-        this.maxMobs = 15; // Límite para no saturar la RAM
+        this.maxMobs = 25; // Límite incrementado de forma segura
     }
 
     spawn(type, x, y, z) {
@@ -27,9 +27,9 @@ export class MobManager {
             let mob = this.mobs[i];
             mob.update(dt, this.world);
             
-            // Si el mob se cae del mundo o el jugador se aleja mucho, lo eliminamos (Despawn)
             let dist = mob.group.position.distanceTo(playerPos);
-            if (mob.group.position.y < -10 || dist > 60) {
+            // Se elimina si cae al vacío o si el jugador se aleja a más de 80 bloques
+            if (mob.group.position.y < -10 || dist > 80) {
                 this.scene.remove(mob.group);
                 this.mobs.splice(i, 1);
             }
@@ -44,7 +44,6 @@ class Mob {
         this.group.position.set(x, y, z);
         this.velocity = new THREE.Vector3(0, 0, 0);
         
-        // Máquina de estados simples
         this.state = 'idle'; 
         this.timer = Math.random() * 3;
         this.targetRotation = Math.random() * Math.PI * 2;
@@ -52,7 +51,6 @@ class Mob {
         this.buildModel();
         scene.add(this.group);
         
-        // Las gallinas son más rápidas
         this.speed = type === 'chicken' ? 1.5 : 0.8;
     }
 
@@ -66,21 +64,18 @@ class Mob {
 
         const mat = new THREE.MeshLambertMaterial({ color: color });
         
-        // Cuerpo
         const bodyGeo = new THREE.BoxGeometry(w, h, d);
         const bodyMesh = new THREE.Mesh(bodyGeo, mat);
         bodyMesh.position.y = yOffset;
         
-        // Cabeza
         const headGeo = new THREE.BoxGeometry(w * 0.8, w * 0.8, w * 0.8);
         const headMesh = new THREE.Mesh(headGeo, mat);
         headMesh.position.set(0, yOffset + h/2 + w * 0.1, d/2);
         
-        // Sombra dinámica bajo el mob
         const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false });
         const shadow = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.2, d * 1.2), shadowMat);
         shadow.rotation.x = -Math.PI / 2;
-        shadow.position.y = 0.05; // Ligeramente por encima del suelo
+        shadow.position.y = 0.05;
 
         this.group.add(bodyMesh);
         this.group.add(headMesh);
@@ -98,7 +93,6 @@ class Mob {
     update(dt, world) {
         this.timer -= dt;
         
-        // Cambiar de estado aleatoriamente (Caminar vs Estar quieto)
         if (this.timer <= 0) {
             if (this.state === 'idle') {
                 this.state = 'wander';
@@ -110,12 +104,9 @@ class Mob {
             }
         }
 
-        // Gravedad constante
         this.velocity.y -= 25.0 * dt;
 
-        // Movimiento horizontal
         if (this.state === 'wander') {
-            // Rotación suave hacia el objetivo
             let diff = this.targetRotation - this.group.rotation.y;
             this.group.rotation.y += diff * 3 * dt;
             
@@ -123,14 +114,12 @@ class Mob {
             this.velocity.x = dir.x * this.speed;
             this.velocity.z = dir.z * this.speed;
         } else {
-            // Fricción al detenerse
             this.velocity.x *= 0.5;
             this.velocity.z *= 0.5;
         }
 
         let pos = this.group.position.clone();
         
-        // Resolver colisiones eje por eje
         pos.x += this.velocity.x * dt;
         if (this.checkCollision(pos, world)) pos.x -= this.velocity.x * dt;
         
@@ -140,16 +129,15 @@ class Mob {
         pos.y += this.velocity.y * dt;
         if (this.checkCollision(pos, world)) {
             pos.y -= this.velocity.y * dt;
-            this.velocity.y = 0; // Toca el suelo
+            this.velocity.y = 0; 
             
-            // Auto-salto si camina contra una pared de 1 bloque
             if (this.state === 'wander') {
                 let frontPos = pos.clone();
                 frontPos.x += Math.sin(this.group.rotation.y) * 0.8;
                 frontPos.z += Math.cos(this.group.rotation.y) * 0.8;
-                frontPos.y += 0.5; // Comprobar a la altura de las rodillas
+                frontPos.y += 0.5;
                 if (this.checkCollision(frontPos, world)) {
-                    this.velocity.y = 7.5; // Fuerza de salto
+                    this.velocity.y = 7.5; 
                 }
             }
         }
