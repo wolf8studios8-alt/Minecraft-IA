@@ -5,14 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Voxel Engine Pro</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
     <div id="ui-layer">
         <div id="crosshair"></div>
         <div id="debug">Cargando Motor...</div>
         <div id="save-icon">💾 Guardando...</div>
-        <div id="hotbar"></div>
+        
+        <div id="hud-container">
+            <div id="status-bars">
+                <div id="health-bar" class="stat-bar"></div>
+                <div id="hunger-bar" class="stat-bar"></div>
+            </div>
+            <div id="exp-bar"><div id="exp-progress"></div></div>
+            <div id="hotbar"></div>
+        </div>
         
         <div id="inventory-screen">
             <div id="chest-section" style="display: none; margin-bottom: 20px;">
