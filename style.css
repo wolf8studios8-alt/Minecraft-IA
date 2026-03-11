@@ -1,49 +1,49 @@
-/* ==========================================
-   INTERFAZ BASE Y JUEGO
-   ========================================== */
 body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: 'Courier New', Courier, monospace; user-select: none; }
 canvas { display: block; width: 100vw; height: 100vh; }
-#ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+#ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); mix-blend-mode: difference; }
 #crosshair::before, #crosshair::after { content: ""; position: absolute; background: white; }
 #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
 #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
-
-/* ==========================================
-   HOTBAR Y MENÚS
-   ========================================== */
-#hotbar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; background: rgba(0,0,0,0.7); padding: 6px; border: 2px solid #222; border-radius: 8px; pointer-events: auto;}
-.slot { width: 48px; height: 48px; border: 2px solid #555; background: rgba(255,255,255,0.05); display: flex; justify-content: flex-end; align-items: flex-end; font-size: 14px; font-weight: bold; color: white; padding: 4px; box-sizing: border-box; transition: 0.1s;}
-.slot.active { border-color: #FFF; box-shadow: 0 0 15px rgba(255,255,255,0.6); transform: translateY(-8px); background: rgba(255,255,255,0.2);}
-#pause-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; pointer-events: auto; cursor: pointer; z-index: 10; backdrop-filter: blur(5px); }
 #debug { position: absolute; top: 10px; left: 10px; color: #0F0; text-shadow: 1px 1px 0 #000; font-weight: bold; line-height: 1.5; pointer-events: none;}
 #save-icon { position: absolute; top: 10px; right: 10px; color: #FFF; font-weight: bold; display: none; text-shadow: 1px 1px 0 #000;}
 
-/* ==========================================
-   INVENTARIO Y COFRES
-   ========================================== */
-#inventory-screen {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 440px; background: #c6c6c6; border: 4px solid #555;
-    border-radius: 4px; display: none; flex-direction: column; padding: 15px;
-    z-index: 20; box-shadow: 0 0 30px rgba(0,0,0,0.8); pointer-events: auto;
-}
-#inventory-screen h2 { margin: 0 0 10px 0; font-size: 16px; color: #333; }
-.inv-grid {
-    display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px;
-    background: #8b8b8b; padding: 6px; border: 2px inset #555;
-}
-.inv-slot {
-    width: 40px; height: 40px; background: #8b8b8b; border-top: 2px solid #fff;
-    border-left: 2px solid #fff; border-bottom: 2px solid #555; border-right: 2px solid #555;
-    display: flex; justify-content: flex-end; align-items: flex-end; cursor: grab; font-size: 14px; font-weight: bold; color: white; padding: 2px; box-sizing: border-box;
-}
-.inv-slot:active { cursor: grabbing; }
-.inv-slot:hover { background: #a0a0a0; }
+#pause-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; pointer-events: auto; cursor: pointer; z-index: 10; backdrop-filter: blur(5px); }
 
 /* ==========================================
-   CONTROLES MÓVILES
+   HUD SUPERVIVENCIA (Salud, Hambre, EXP, Hotbar)
    ========================================== */
+#hud-container { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+
+#status-bars { display: flex; justify-content: space-between; width: 400px; margin-bottom: 2px; }
+.stat-bar { display: flex; gap: 2px; }
+
+.heart { width: 16px; height: 16px; background-size: contain; background-repeat: no-repeat; }
+.heart.full { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M8 14S2 10 2 5a3 3 0 016-1 3 3 0 016 1c0 5-6 9-6 9z" fill="%23e31414" stroke="%23000" stroke-width="2"/></svg>'); }
+.heart.empty { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M8 14S2 10 2 5a3 3 0 016-1 3 3 0 016 1c0 5-6 9-6 9z" fill="none" stroke="%23000" stroke-width="2"/></svg>'); }
+
+.drumstick { width: 16px; height: 16px; background-size: contain; background-repeat: no-repeat; }
+.drumstick.full { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="5" r="4" fill="%23c46e1f" stroke="%23000" stroke-width="1.5"/><path d="M8 8L3 13M9 7L4 12" stroke="%23fff" stroke-width="2"/><circle cx="3" cy="13" r="1.5" fill="%23fff"/></svg>'); }
+.drumstick.empty { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="5" r="4" fill="none" stroke="%23000" stroke-width="1.5"/><path d="M8 8L3 13" stroke="%23000" stroke-width="2"/><circle cx="3" cy="13" r="1.5" fill="none" stroke="%23000" stroke-width="1.5"/></svg>'); }
+
+#exp-bar { width: 400px; height: 6px; background: #222; border: 2px solid #000; margin-bottom: 6px; position: relative; }
+#exp-progress { width: 30%; height: 100%; background: #64e320; }
+
+#hotbar { display: flex; background: #8b8b8b; padding: 2px; border: 3px solid #373737; border-top-color: #dfdfdf; border-left-color: #dfdfdf; }
+.slot { width: 40px; height: 40px; background: #8b8b8b; border: 2px solid #555; border-top-color: #373737; border-left-color: #373737; border-bottom-color: #fff; border-right-color: #fff; margin: 1px; position: relative; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+.slot.active { border: 3px solid #fff; margin: 0; box-shadow: inset 0 0 5px rgba(255,255,255,0.5); }
+.slot .count { position: absolute; bottom: -2px; right: 2px; font-size: 14px; font-weight: bold; color: white; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; z-index: 2; }
+
+/* Miniaturas de Bloques */
+.block-icon { width: 24px; height: 24px; border: 2px solid rgba(0,0,0,0.4); box-sizing: border-box; box-shadow: inset 2px 2px 0 rgba(255,255,255,0.3); }
+
+#inventory-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 440px; background: #c6c6c6; border: 4px solid #555; border-radius: 4px; display: none; flex-direction: column; padding: 15px; z-index: 20; box-shadow: 0 0 30px rgba(0,0,0,0.8); pointer-events: auto; }
+#inventory-screen h2 { margin: 0 0 10px 0; font-size: 16px; color: #333; }
+.inv-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; background: #8b8b8b; padding: 6px; border: 2px inset #555; }
+.inv-slot { width: 40px; height: 40px; background: #8b8b8b; border-top: 2px solid #fff; border-left: 2px solid #fff; border-bottom: 2px solid #555; border-right: 2px solid #555; position: relative; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+.inv-slot:hover { background: #a0a0a0; }
+.inv-slot .count { position: absolute; bottom: 0; right: 2px; font-size: 14px; font-weight: bold; color: white; text-shadow: 1px 1px 0 #000; z-index: 2; }
+
 #mobile-controls { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; }
 #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; pointer-events: auto; touch-action: none; }
 #joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.15); border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); position: relative; }
@@ -53,6 +53,6 @@ canvas { display: block; width: 100vw; height: 100vh; }
 #action-buttons button:active { background: rgba(255,255,255,0.4); transform: scale(0.95); }
 
 @media (max-width: 768px) { 
-    #hotbar { bottom: auto; top: 20px; transform: translateX(-50%) scale(0.8); }
-    #debug { top: 80px; }
+    #hud-container { top: 10px; bottom: auto; transform: translateX(-50%) scale(0.8); }
+    #debug { top: 90px; }
 }
