@@ -6,8 +6,6 @@ export class Hotbar {
         this.slots = new Array(36).fill(null);
         this.chestSlots = new Array(27).fill(null);
         this.activeChestKey = null;
-        
-        // Esta variable recordará qué slot has tocado primero para moverlo
         this.swapSource = null; 
 
         let savedData = JSON.parse(localStorage.getItem('voxel_player_inventory'));
@@ -74,7 +72,7 @@ export class Hotbar {
 
     openChest(chestKey) {
         this.activeChestKey = chestKey;
-        this.swapSource = null; // Limpiar selección previa
+        this.swapSource = null; 
         let savedChests = JSON.parse(localStorage.getItem('voxel_chests')) || {};
         this.chestSlots = savedChests[chestKey] || new Array(27).fill(null);
         document.getElementById('chest-section').style.display = 'block';
@@ -93,6 +91,21 @@ export class Hotbar {
         this.render();
     }
 
+    getBlockColor(id) {
+        switch(id) {
+            case BLOCKS.DIRT: return '#5C4033';
+            case BLOCKS.GRASS: return '#52b015';
+            case BLOCKS.STONE: return '#7D7D7D';
+            case BLOCKS.WOOD: return '#75502b';
+            case BLOCKS.LEAVES: return '#2a781a';
+            case BLOCKS.SAND: return '#d2b48c';
+            case BLOCKS.TORCH: return '#ffaa00';
+            case BLOCKS.CHEST: return '#8f563b';
+            case BLOCKS.GLASS: return '#aadfff';
+            default: return '#fff';
+        }
+    }
+
     render() {
         const hotbarEl = document.getElementById('hotbar');
         const mainEl = document.getElementById('main-inventory');
@@ -108,7 +121,6 @@ export class Hotbar {
             div.className = isHotbar ? 'slot' : 'inv-slot';
             if (isHotbar && index === this.selectedIndex) div.classList.add('active');
             
-            // Iluminar la casilla si está seleccionada para moverse
             if (this.swapSource && this.swapSource.type === type && this.swapSource.index === index) {
                 div.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
                 div.style.boxShadow = 'inset 0 0 10px #fff';
@@ -116,38 +128,34 @@ export class Hotbar {
             
             let slotData = dataArray[index];
             if (slotData) {
-                div.innerText = slotData.count;
-                let c = '';
-                if(slotData.id === BLOCKS.DIRT) c = '#5C4033';
-                if(slotData.id === BLOCKS.STONE) c = '#7D7D7D';
-                if(slotData.id === BLOCKS.WOOD) c = '#75502b';
-                if(slotData.id === BLOCKS.GLASS) c = '#aadfff';
-                if(slotData.id === BLOCKS.TORCH) c = '#ffaa00';
-                if(slotData.id === BLOCKS.CHEST) c = '#8f563b';
-                if(slotData.id === BLOCKS.SAND) c = '#d2b48c';
-                div.style.borderBottomColor = c;
+                // Generar Miniatura del bloque
+                let icon = document.createElement('div');
+                icon.className = 'block-icon';
+                icon.style.backgroundColor = this.getBlockColor(slotData.id);
+                div.appendChild(icon);
+
+                // Etiqueta de cantidad
+                let countTxt = document.createElement('span');
+                countTxt.className = 'count';
+                countTxt.innerText = slotData.count;
+                div.appendChild(countTxt);
             }
 
-            // NUEVO: Compatibilidad universal (Toque en móvil o Clic en PC)
             div.onclick = (e) => {
                 const invScreen = document.getElementById('inventory-screen');
                 const isInvOpen = invScreen && invScreen.style.display === 'flex';
 
-                // Si estás jugando y tocas la hotbar, cambias de objeto
                 if (!isInvOpen && isHotbar) {
                     this.selectedIndex = index;
                     this.render();
                     return;
                 }
 
-                // Si el inventario está abierto: Lógica "Tocar para intercambiar"
                 if (isInvOpen) {
                     if (!this.swapSource) {
-                        // Tocar por primera vez: se selecciona el origen
                         this.swapSource = { type: type, index: index };
                         this.render();
                     } else {
-                        // Tocar por segunda vez: se intercambian
                         let sArray = this.swapSource.type === 'inv' ? this.slots : this.chestSlots;
                         let tArray = type === 'inv' ? this.slots : this.chestSlots;
                         
@@ -155,7 +163,7 @@ export class Hotbar {
                         sArray[this.swapSource.index] = tArray[index];
                         tArray[index] = temp;
                         
-                        this.swapSource = null; // Reiniciar
+                        this.swapSource = null; 
                         this.render();
                         this.save();
                     }
