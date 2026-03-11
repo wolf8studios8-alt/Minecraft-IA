@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Voxel Engine Pro</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
@@ -22,11 +22,23 @@
             <h2>Inventario <span style="font-size: 12px; color: #555;">(Arrastra los objetos)</span></h2>
             <div class="inv-grid" id="main-inventory"></div>
         </div>
+
+        <div id="mobile-controls" style="display: none;">
+            <div id="joystick-zone">
+                <div id="joystick-base"><div id="joystick-stick"></div></div>
+            </div>
+            <div id="action-buttons">
+                <button id="btn-mine">⛏</button>
+                <button id="btn-place">🧱</button>
+                <button id="btn-jump">▲</button>
+                <button id="btn-inv">🎒</button>
+            </div>
+        </div>
     </div>
     
     <div id="pause-screen">
         <h1 style="font-size: 4rem; margin-bottom: 0; text-shadow: 4px 4px 0 #333;">VOXEL PRO</h1>
-        <p style="font-size: 1.5rem; color: #aaa;">Haz clic para entrar</p>
+        <p style="font-size: 1.5rem; color: #aaa;">Haz clic (o toca) para entrar</p>
     </div>
 
     <script type="module" src="./src/main.js"></script>
