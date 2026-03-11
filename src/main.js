@@ -70,11 +70,15 @@ function generateCrackTexture() {
 const textureAtlas = generateTextureAtlas();
 const crackAtlas = generateCrackTexture();
 
+// --- INICIALIZACIÓN PRINCIPAL ---
 const world = new World(scene, textureAtlas);
 const player = new Player(camera, world);
 const hotbar = new Hotbar();
 const mobileControls = new MobileControls(player, camera);
-const mobManager = new MobManager(scene, world); // <-- GESTOR DE MOBS INICIALIZADO
+const mobManager = new MobManager(scene, world); 
+
+// IMPORTANTE: Enlazamos el mobManager al mundo para que genere al cargar chunks
+world.mobManager = mobManager; 
 
 let savedPlayer = JSON.parse(localStorage.getItem('voxel_player_data'));
 if (savedPlayer && savedPlayer.pos) camera.position.set(savedPlayer.pos.x, savedPlayer.pos.y, savedPlayer.pos.z);
@@ -203,7 +207,6 @@ document.addEventListener('mousedown', (e) => {
 });
 
 document.addEventListener('mouseup', (e) => {
-    // Si se suelta el clic, se cancela la rotura (El temporizador se reiniciará a 0 la próxima vez)
     if (e.button === 0) { mining.active = false; damageMesh.visible = false; }
 });
 window.addEventListener('contextmenu', e => e.preventDefault());
@@ -225,25 +228,10 @@ function animate() {
         player.update(dt);
         if (Math.random() < 0.1) world.updateChunks(camera.position); 
 
-        // SPANWER DE MOBS: Aparecen aleatoriamente cerca de ti sobre la hierba
-        if (Math.random() < 0.02 && mobManager.mobs.length < mobManager.maxMobs) {
-            let sx = Math.floor(camera.position.x + (Math.random() - 0.5) * 50);
-            let sz = Math.floor(camera.position.z + (Math.random() - 0.5) * 50);
-            for (let y = CHUNK_HEIGHT - 1; y > WATER_LEVEL; y--) {
-                if (world.getBlockGlobal(sx, y, sz) === BLOCKS.GRASS && world.getBlockGlobal(sx, y + 1, sz) === BLOCKS.AIR) {
-                    const types = ['pig', 'sheep', 'cow', 'chicken'];
-                    mobManager.spawn(types[Math.floor(Math.random() * types.length)], sx, y + 1.5, sz);
-                    break;
-                }
-            }
-        }
-
-        // Minado continuo
         if (mining.active) {
             const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
             const hitResult = raycastDDA(camera.position, dir, 6, world);
             
-            // Si seguimos mirando al mismo bloque, la grieta avanza
             if (hitResult.hit && hitResult.pos.equals(mining.pos)) {
                 mining.timer += dt * 6.5; 
                 crackAtlas.offset.x = Math.floor(mining.timer) / 10;
@@ -254,13 +242,11 @@ function animate() {
                     mining.active = false; damageMesh.visible = false;
                 }
             } else { 
-                // Si miramos a otro lado, se cancela la rotura
                 mining.active = false; damageMesh.visible = false;
             }
         }
     }
 
-    // Actualizar Mobs e Ítems
     mobManager.update(dt, camera.position);
 
     for (let i = droppedItems.length - 1; i >= 0; i--) {
