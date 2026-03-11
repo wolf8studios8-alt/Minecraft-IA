@@ -9,7 +9,7 @@ import { BLOCKS, RENDER_DISTANCE, CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH } from 
 // 1. INICIALIZACIÓN DE THREE.JS
 // ==========================================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Solución al pantallazo negro
+scene.background = new THREE.Color(0x87CEEB); 
 scene.fog = new THREE.Fog(0x87CEEB, (RENDER_DISTANCE - 1) * CHUNK_WIDTH, RENDER_DISTANCE * CHUNK_WIDTH + 10);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150);
@@ -87,29 +87,46 @@ let savedPlayer = JSON.parse(localStorage.getItem('voxel_player_data'));
 if (savedPlayer && savedPlayer.pos) {
     camera.position.set(savedPlayer.pos.x, savedPlayer.pos.y, savedPlayer.pos.z);
 } else {
-    // Te sitúa en el centro y alto para que caigas sobre el terreno
     camera.position.set(CHUNK_WIDTH / 2, CHUNK_HEIGHT - 5, CHUNK_DEPTH / 2);
 }
 
-// Genera los bloques a tu alrededor de inmediato
 world.updateChunks(camera.position);
 
 // ==========================================
 // 5. CONTROLES Y PAUSA
 // ==========================================
 const pauseScreen = document.getElementById('pause-screen');
+const inventoryScreen = document.getElementById('inventory-screen');
 let euler = new THREE.Euler(0, 0, 0, 'YXZ');
 
 pauseScreen.addEventListener('click', () => {
     const promise = document.body.requestPointerLock();
     if (promise !== undefined && promise.catch) {
-        promise.catch(() => {}); // Silencia el SecurityError
+        promise.catch(() => {});
+    }
+});
+
+// Tecla X para abrir/cerrar inventario
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyX') {
+        if (inventoryScreen.style.display === 'flex') {
+            inventoryScreen.style.display = 'none';
+            document.body.requestPointerLock(); // Volver al juego
+        } else {
+            document.exitPointerLock(); // Soltar ratón para usar el inventario
+            inventoryScreen.style.display = 'flex';
+        }
     }
 });
 
 document.addEventListener('pointerlockchange', () => {
     const isLocked = document.pointerLockElement === document.body;
-    pauseScreen.style.display = isLocked ? 'none' : 'flex';
+    // Solo mostramos la pantalla de pausa si el inventario NO está abierto
+    if (!isLocked && inventoryScreen.style.display !== 'flex') {
+        pauseScreen.style.display = 'flex';
+    } else {
+        pauseScreen.style.display = 'none';
+    }
     
     if (!isLocked) {
         player.keys = { w: false, a: false, s: false, d: false, space: false };
