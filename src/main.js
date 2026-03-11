@@ -3,8 +3,12 @@ import { World } from './world/World.js';
 import { Player } from './player/Player.js';
 import { raycastDDA } from './player/Raycast.js';
 import { Hotbar } from './ui/Hotbar.js';
+import { MobileControls } from './ui/MobileControls.js';
 import { BLOCKS, RENDER_DISTANCE, CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH } from './constants.js';
 
+// ==========================================
+// 1. INICIALIZACIÓN DE THREE.JS
+// ==========================================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); 
 scene.fog = new THREE.Fog(0x87CEEB, (RENDER_DISTANCE - 1) * CHUNK_WIDTH, RENDER_DISTANCE * CHUNK_WIDTH + 10);
@@ -21,7 +25,7 @@ dirLight.position.set(100, 200, 100);
 scene.add(dirLight);
 
 // ==========================================
-// TEXTURAS PROCEDIMENTALES (Atlas y Grietas)
+// 2. TEXTURAS PROCEDIMENTALES (Atlas y Grietas)
 // ==========================================
 function generateTextureAtlas() {
     const canvas = document.createElement('canvas');
@@ -71,9 +75,13 @@ function generateCrackTexture() {
 const textureAtlas = generateTextureAtlas();
 const crackAtlas = generateCrackTexture();
 
+// ==========================================
+// 3. INSTANCIAS PRINCIPALES
+// ==========================================
 const world = new World(scene, textureAtlas);
 const player = new Player(camera, world);
 const hotbar = new Hotbar();
+const mobileControls = new MobileControls(player, camera);
 
 let savedPlayer = JSON.parse(localStorage.getItem('voxel_player_data'));
 if (savedPlayer && savedPlayer.pos) camera.position.set(savedPlayer.pos.x, savedPlayer.pos.y, savedPlayer.pos.z);
@@ -81,7 +89,7 @@ else camera.position.set(CHUNK_WIDTH / 2, CHUNK_HEIGHT - 5, CHUNK_DEPTH / 2);
 world.updateChunks(camera.position);
 
 // ==========================================
-// SISTEMA DE DAÑO Y ENTIDADES (ITEMS)
+// 4. SISTEMA DE DAÑO Y ENTIDADES (ITEMS)
 // ==========================================
 const damageMesh = new THREE.Mesh(
     new THREE.BoxGeometry(1.02, 1.02, 1.02),
@@ -117,7 +125,7 @@ function spawnItemEntity(id, pos) {
 }
 
 // ==========================================
-// CONTROLES E INTERACCIÓN
+// 5. CONTROLES E INTERACCIÓN
 // ==========================================
 const pauseScreen = document.getElementById('pause-screen');
 const inventoryScreen = document.getElementById('inventory-screen');
@@ -126,8 +134,11 @@ let euler = new THREE.Euler(0, 0, 0, 'YXZ');
 let mining = { active: false, timer: 0, pos: new THREE.Vector3(), blockId: 0 };
 
 pauseScreen.addEventListener('click', () => {
-    let p = document.body.requestPointerLock();
-    if(p) p.catch(()=>{});
+    // Si estamos en móvil, MobileControls quita esta pantalla, aquí solo solicitamos el puntero si es PC
+    if (!mobileControls.isMobile) {
+        let p = document.body.requestPointerLock();
+        if(p) p.catch(()=>{});
+    }
 });
 
 document.addEventListener('keydown', (e) => {
@@ -135,7 +146,7 @@ document.addEventListener('keydown', (e) => {
         if (inventoryScreen.style.display === 'flex') {
             inventoryScreen.style.display = 'none';
             hotbar.closeChest();
-            document.body.requestPointerLock();
+            if (!mobileControls.isMobile) document.body.requestPointerLock();
         } else {
             document.exitPointerLock();
             inventoryScreen.style.display = 'flex';
@@ -145,17 +156,23 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('pointerlockchange', () => {
     const isLocked = document.pointerLockElement === document.body;
-    pauseScreen.style.display = (!isLocked && inventoryScreen.style.display !== 'flex') ? 'flex' : 'none';
     
-    if (!isLocked) {
-        player.keys = { w: false, a: false, s: false, d: false, space: false };
-        mining.active = false; damageMesh.visible = false;
-        localStorage.setItem('voxel_player_data', JSON.stringify({ pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z } }));
+    if (!mobileControls.isMobile) {
+        pauseScreen.style.display = (!isLocked && inventoryScreen.style.display !== 'flex') ? 'flex' : 'none';
+        
+        if (!isLocked) {
+            player.keys = { w: false, a: false, s: false, d: false, space: false };
+            mining.active = false; damageMesh.visible = false;
+            localStorage.setItem('voxel_player_data', JSON.stringify({ pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z } }));
+        }
     }
 });
 
 document.addEventListener('mousemove', (e) => {
-    if (document.pointerLockElement === document.body) {
+    let isLocked = document.pointerLockElement === document.body;
+    let isMobileActive = mobileControls.isMobile && mobileControls.touchLookEnabled;
+
+    if (isLocked || isMobileActive) {
         euler.setFromQuaternion(camera.quaternion);
         euler.y -= e.movementX * 0.002; euler.x -= e.movementY * 0.002;
         euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
@@ -164,12 +181,16 @@ document.addEventListener('mousemove', (e) => {
 });
 
 document.addEventListener('mousedown', (e) => {
-    if (document.pointerLockElement !== document.body) return;
+    let isLocked = document.pointerLockElement === document.body;
+    let isMobileActive = mobileControls.isMobile && mobileControls.touchLookEnabled;
+
+    if (!isLocked && !isMobileActive) return;
+    
     const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
     const hitResult = raycastDDA(camera.position, dir, 6, world); 
     
     if (hitResult.hit) {
-        // Clic Izquierdo: Empezar a minar
+        // Clic Izquierdo (o botón minar móvil)
         if (e.button === 0) { 
             mining.active = true; mining.timer = 0;
             mining.pos.copy(hitResult.pos);
@@ -177,11 +198,12 @@ document.addEventListener('mousedown', (e) => {
             damageMesh.position.copy(hitResult.pos).addScalar(0.5);
             damageMesh.visible = true;
         } 
-        // Clic Derecho: Colocar o abrir cofre
+        // Clic Derecho (o botón colocar móvil)
         else if (e.button === 2) { 
             if (hitResult.blockId === BLOCKS.CHEST) {
                 let chestKey = `${hitResult.pos.x},${hitResult.pos.y},${hitResult.pos.z}`;
                 document.exitPointerLock();
+                if(mobileControls.isMobile) mobileControls.touchLookEnabled = false;
                 inventoryScreen.style.display = 'flex';
                 hotbar.openChest(chestKey);
                 return;
@@ -189,8 +211,9 @@ document.addEventListener('mousedown', (e) => {
             let blockToPlace = hotbar.getSelectedBlock();
             const placePos = hitResult.pos.clone().add(hitResult.normal);
             if (blockToPlace !== BLOCKS.AIR && (!player.checkCollision(placePos) || blockToPlace === BLOCKS.TORCH)) { 
-                world.setBlockGlobal(placePos.x, placePos.y, placePos.z, blockToPlace);
-                hotbar.consumeSelected();
+                if(hotbar.consumeSelected()){
+                    world.setBlockGlobal(placePos.x, placePos.y, placePos.z, blockToPlace);
+                }
             }
         }
     }
@@ -202,7 +225,7 @@ document.addEventListener('mouseup', (e) => {
 window.addEventListener('contextmenu', e => e.preventDefault());
 
 // ==========================================
-// GAME LOOP (Animaciones y Físicas)
+// 6. GAME LOOP (Animaciones y Físicas)
 // ==========================================
 let lastTime = performance.now();
 const debugUI = document.getElementById('debug');
@@ -214,25 +237,28 @@ function animate() {
     const dt = Math.min((time - lastTime) / 1000, 0.1); 
     lastTime = time;
 
-    if (document.pointerLockElement === document.body) {
+    let isLocked = document.pointerLockElement === document.body;
+    let isMobileActive = mobileControls.isMobile && mobileControls.touchLookEnabled;
+
+    if (isLocked || isMobileActive) {
         player.update(dt);
         if (Math.random() < 0.1) world.updateChunks(camera.position); 
 
-        // Lógica de Minado
+        // Lógica de Minado continuo
         if (mining.active) {
             const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
             const hitResult = raycastDDA(camera.position, dir, 6, world);
-            // Si seguimos mirando al mismo bloque
+            
             if (hitResult.hit && hitResult.pos.equals(mining.pos)) {
-                mining.timer += dt * 6.5; // Velocidad de rotura
+                mining.timer += dt * 6.5; 
                 crackAtlas.offset.x = Math.floor(mining.timer) / 10;
                 
-                if (mining.timer >= 10) { // Bloque roto
+                if (mining.timer >= 10) { 
                     world.setBlockGlobal(mining.pos.x, mining.pos.y, mining.pos.z, BLOCKS.AIR);
                     spawnItemEntity(mining.blockId, mining.pos);
                     mining.active = false; damageMesh.visible = false;
                 }
-            } else { // Miramos hacia otro lado
+            } else { 
                 mining.active = false; damageMesh.visible = false;
             }
         }
@@ -244,25 +270,22 @@ function animate() {
         item.group.position.x += item.vx * dt;
         item.group.position.z += item.vz * dt;
         item.group.position.y += item.vy * dt;
-        item.vy -= 15 * dt; // Gravedad
+        item.vy -= 15 * dt; 
         
-        // Colisión con el suelo
         let ix = Math.floor(item.group.position.x);
         let iy = Math.floor(item.group.position.y - 0.2);
         let iz = Math.floor(item.group.position.z);
         
         if (world.getBlockGlobal(ix, iy, iz) !== BLOCKS.AIR && world.getBlockGlobal(ix, iy, iz) !== BLOCKS.WATER) {
-            item.vy = 0; item.vx *= 0.5; item.vz *= 0.5; // Fricción
+            item.vy = 0; item.vx *= 0.5; item.vz *= 0.5; 
             item.group.position.y = iy + 1.25; 
         }
         
-        // Animación visual (Flotar y rotar)
         item.baseY = item.group.position.y;
         item.mesh.rotation.y += 2 * dt;
         item.mesh.position.y = Math.sin(time * 0.005) * 0.1;
         item.shadow.position.y = -0.24 - item.mesh.position.y; 
 
-        // Recolección por proximidad
         if (camera.position.distanceTo(item.group.position) < 1.8) {
             hotbar.addBlock(item.id, 1);
             scene.remove(item.group);
