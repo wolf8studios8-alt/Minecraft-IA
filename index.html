@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Voxel Engine Modular</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,12 +13,16 @@
         <div id="debug">Iniciando Motor...</div>
         <div id="save-icon">💾 Guardando...</div>
         <div id="hotbar"></div>
+        
+        <div id="inventory-screen">
+            <h2>Inventario</h2>
+            <div class="inv-grid" id="main-inventory"></div>
+        </div>
     </div>
     <div id="pause-screen">
         <h1 style="font-size: 4rem; margin-bottom: 0; text-shadow: 4px 4px 0 #333;">VOXEL PRO</h1>
         <p style="font-size: 1.5rem; color: #aaa;">Haz clic en la pantalla para entrar al mundo</p>
     </div>
-    
     <script type="module" src="./src/main.js"></script>
 </body>
 </html>
