@@ -4,11 +4,9 @@ import { Player } from './player/Player.js';
 import { raycastDDA } from './player/Raycast.js';
 import { Hotbar } from './ui/Hotbar.js';
 import { MobileControls } from './ui/MobileControls.js';
+import { MobManager } from './world/Mobs.js';
 import { BLOCKS, RENDER_DISTANCE, CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH } from './constants.js';
 
-// ==========================================
-// 1. INICIALIZACIÓN DE THREE.JS
-// ==========================================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); 
 scene.fog = new THREE.Fog(0x87CEEB, (RENDER_DISTANCE - 1) * CHUNK_WIDTH, RENDER_DISTANCE * CHUNK_WIDTH + 10);
@@ -24,9 +22,6 @@ const dirLight = new THREE.DirectionalLight(0xfffff0, 0.8);
 dirLight.position.set(100, 200, 100);
 scene.add(dirLight);
 
-// ==========================================
-// 2. TEXTURAS PROCEDIMENTALES (Atlas y Grietas)
-// ==========================================
 function generateTextureAtlas() {
     const canvas = document.createElement('canvas');
     canvas.width = 256; canvas.height = 256;
@@ -75,22 +70,17 @@ function generateCrackTexture() {
 const textureAtlas = generateTextureAtlas();
 const crackAtlas = generateCrackTexture();
 
-// ==========================================
-// 3. INSTANCIAS PRINCIPALES
-// ==========================================
 const world = new World(scene, textureAtlas);
 const player = new Player(camera, world);
 const hotbar = new Hotbar();
 const mobileControls = new MobileControls(player, camera);
+const mobManager = new MobManager(scene, world); // <-- GESTOR DE MOBS INICIALIZADO
 
 let savedPlayer = JSON.parse(localStorage.getItem('voxel_player_data'));
 if (savedPlayer && savedPlayer.pos) camera.position.set(savedPlayer.pos.x, savedPlayer.pos.y, savedPlayer.pos.z);
 else camera.position.set(CHUNK_WIDTH / 2, CHUNK_HEIGHT - 5, CHUNK_DEPTH / 2);
 world.updateChunks(camera.position);
 
-// ==========================================
-// 4. SISTEMA DE DAÑO Y ENTIDADES (ITEMS)
-// ==========================================
 const damageMesh = new THREE.Mesh(
     new THREE.BoxGeometry(1.02, 1.02, 1.02),
     new THREE.MeshBasicMaterial({ map: crackAtlas, transparent: true, depthWrite: false, alphaTest: 0.1 })
@@ -124,17 +114,12 @@ function spawnItemEntity(id, pos) {
     });
 }
 
-// ==========================================
-// 5. CONTROLES E INTERACCIÓN
-// ==========================================
 const pauseScreen = document.getElementById('pause-screen');
 const inventoryScreen = document.getElementById('inventory-screen');
 let euler = new THREE.Euler(0, 0, 0, 'YXZ');
-
 let mining = { active: false, timer: 0, pos: new THREE.Vector3(), blockId: 0 };
 
 pauseScreen.addEventListener('click', () => {
-    // Si estamos en móvil, MobileControls quita esta pantalla, aquí solo solicitamos el puntero si es PC
     if (!mobileControls.isMobile) {
         let p = document.body.requestPointerLock();
         if(p) p.catch(()=>{});
@@ -190,7 +175,6 @@ document.addEventListener('mousedown', (e) => {
     const hitResult = raycastDDA(camera.position, dir, 6, world); 
     
     if (hitResult.hit) {
-        // Clic Izquierdo (o botón minar móvil)
         if (e.button === 0) { 
             mining.active = true; mining.timer = 0;
             mining.pos.copy(hitResult.pos);
@@ -198,7 +182,6 @@ document.addEventListener('mousedown', (e) => {
             damageMesh.position.copy(hitResult.pos).addScalar(0.5);
             damageMesh.visible = true;
         } 
-        // Clic Derecho (o botón colocar móvil)
         else if (e.button === 2) { 
             if (hitResult.blockId === BLOCKS.CHEST) {
                 let chestKey = `${hitResult.pos.x},${hitResult.pos.y},${hitResult.pos.z}`;
@@ -220,13 +203,11 @@ document.addEventListener('mousedown', (e) => {
 });
 
 document.addEventListener('mouseup', (e) => {
+    // Si se suelta el clic, se cancela la rotura (El temporizador se reiniciará a 0 la próxima vez)
     if (e.button === 0) { mining.active = false; damageMesh.visible = false; }
 });
 window.addEventListener('contextmenu', e => e.preventDefault());
 
-// ==========================================
-// 6. GAME LOOP (Animaciones y Físicas)
-// ==========================================
 let lastTime = performance.now();
 const debugUI = document.getElementById('debug');
 let frameCount = 0, lastFpsTime = performance.now();
@@ -244,11 +225,25 @@ function animate() {
         player.update(dt);
         if (Math.random() < 0.1) world.updateChunks(camera.position); 
 
-        // Lógica de Minado continuo
+        // SPANWER DE MOBS: Aparecen aleatoriamente cerca de ti sobre la hierba
+        if (Math.random() < 0.02 && mobManager.mobs.length < mobManager.maxMobs) {
+            let sx = Math.floor(camera.position.x + (Math.random() - 0.5) * 50);
+            let sz = Math.floor(camera.position.z + (Math.random() - 0.5) * 50);
+            for (let y = CHUNK_HEIGHT - 1; y > WATER_LEVEL; y--) {
+                if (world.getBlockGlobal(sx, y, sz) === BLOCKS.GRASS && world.getBlockGlobal(sx, y + 1, sz) === BLOCKS.AIR) {
+                    const types = ['pig', 'sheep', 'cow', 'chicken'];
+                    mobManager.spawn(types[Math.floor(Math.random() * types.length)], sx, y + 1.5, sz);
+                    break;
+                }
+            }
+        }
+
+        // Minado continuo
         if (mining.active) {
             const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
             const hitResult = raycastDDA(camera.position, dir, 6, world);
             
+            // Si seguimos mirando al mismo bloque, la grieta avanza
             if (hitResult.hit && hitResult.pos.equals(mining.pos)) {
                 mining.timer += dt * 6.5; 
                 crackAtlas.offset.x = Math.floor(mining.timer) / 10;
@@ -259,12 +254,15 @@ function animate() {
                     mining.active = false; damageMesh.visible = false;
                 }
             } else { 
+                // Si miramos a otro lado, se cancela la rotura
                 mining.active = false; damageMesh.visible = false;
             }
         }
     }
 
-    // Físicas de los objetos soltados
+    // Actualizar Mobs e Ítems
+    mobManager.update(dt, camera.position);
+
     for (let i = droppedItems.length - 1; i >= 0; i--) {
         let item = droppedItems[i];
         item.group.position.x += item.vx * dt;
@@ -297,7 +295,7 @@ function animate() {
 
     frameCount++;
     if (time - lastFpsTime >= 1000) {
-        if(debugUI) debugUI.innerHTML = `FPS: ${frameCount} | Entidades: ${droppedItems.length} | Chunks: ${world.chunks.size}`;
+        if(debugUI) debugUI.innerHTML = `FPS: ${frameCount} | Mobs: ${mobManager.mobs.length} | Items: ${droppedItems.length}`;
         frameCount = 0; lastFpsTime = time;
     }
 }
