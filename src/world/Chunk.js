@@ -148,7 +148,16 @@ export class Chunk {
         }
 
         const matOpaque = new THREE.MeshLambertMaterial({ map: textureAtlas, vertexColors: true });
-        const matTrans = new THREE.MeshLambertMaterial({ map: textureAtlas, transparent: true, opacity: 0.85, side: THREE.DoubleSide, vertexColors: true });
+        // ARREGLO DE RAYOS X: alphaTest y depthWrite
+        const matTrans = new THREE.MeshLambertMaterial({ 
+            map: textureAtlas, 
+            transparent: true, 
+            opacity: 0.85, 
+            side: THREE.DoubleSide, 
+            vertexColors: true,
+            alphaTest: 0.1, 
+            depthWrite: false
+        });
 
         let geoOpaque = buildGeo(false); 
         if(geoOpaque) { 
