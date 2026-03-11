@@ -1,10 +1,11 @@
-import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RENDER_DISTANCE, UNLOAD_DISTANCE, BLOCKS } from '../constants.js';
+import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RENDER_DISTANCE, UNLOAD_DISTANCE, BLOCKS, WATER_LEVEL } from '../constants.js';
 import { Chunk } from './Chunk.js';
 
 export class World {
     constructor(scene, textureAtlas) {
-        this.scene = scene;
+        this.scene = scene; 
         this.textureAtlas = textureAtlas;
+        this.mobManager = null; // Se enlazará desde main.js
         this.chunks = new Map();
         this.modifiedBlocks = JSON.parse(localStorage.getItem('voxel_world_data')) || {};
         this.saveTimeout = null;
@@ -18,13 +19,11 @@ export class World {
         let key = this.getChunkKey(cx, cz);
         let lx = x - cx * CHUNK_WIDTH, lz = z - cz * CHUNK_DEPTH;
         let blockKey = `${lx},${y},${lz}`;
-
         if (!this.modifiedBlocks[key]) this.modifiedBlocks[key] = {};
         this.modifiedBlocks[key][blockKey] = id;
         
         const saveIcon = document.getElementById('save-icon');
         if(saveIcon) saveIcon.style.display = 'block';
-        
         clearTimeout(this.saveTimeout);
         this.saveTimeout = setTimeout(() => {
             localStorage.setItem('voxel_world_data', JSON.stringify(this.modifiedBlocks));
@@ -42,36 +41,62 @@ export class World {
     setBlockGlobal(x, y, z, id) {
         if (y < 0 || y >= CHUNK_HEIGHT) return;
         this.saveBlockModification(x, y, z, id);
-
         let cx = Math.floor(x / CHUNK_WIDTH), cz = Math.floor(z / CHUNK_DEPTH);
         let chunk = this.chunks.get(this.getChunkKey(cx, cz));
         if (chunk) {
             chunk.setBlock(x - cx * CHUNK_WIDTH, y, z - cz * CHUNK_DEPTH, id);
             chunk.isDirty = true;
-            // Aquí iría la lógica de actualización de chunks vecinos y luces
+            let lx = x - cx * CHUNK_WIDTH, lz = z - cz * CHUNK_DEPTH;
+            if (lx === 0) { let n = this.chunks.get(this.getChunkKey(cx-1, cz)); if(n) n.isDirty = true; }
+            if (lx === CHUNK_WIDTH-1) { let n = this.chunks.get(this.getChunkKey(cx+1, cz)); if(n) n.isDirty = true; }
+            if (lz === 0) { let n = this.chunks.get(this.getChunkKey(cx, cz-1)); if(n) n.isDirty = true; }
+            if (lz === CHUNK_DEPTH-1) { let n = this.chunks.get(this.getChunkKey(cx, cz+1)); if(n) n.isDirty = true; }
         }
     }
 
     updateChunks(playerPos) {
-        let pcx = Math.floor(playerPos.x / CHUNK_WIDTH);
-        let pcz = Math.floor(playerPos.z / CHUNK_DEPTH);
+        let pcx = Math.floor(playerPos.x / CHUNK_WIDTH), pcz = Math.floor(playerPos.z / CHUNK_DEPTH);
         
         for (let x = -RENDER_DISTANCE; x <= RENDER_DISTANCE; x++) {
             for (let z = -RENDER_DISTANCE; z <= RENDER_DISTANCE; z++) {
                 let cx = pcx + x, cz = pcz + z;
                 let key = this.getChunkKey(cx, cz);
+                
                 if (!this.chunks.has(key)) {
-                    this.chunks.set(key, new Chunk(cx, cz, this));
+                    let chunk = new Chunk(cx, cz, this);
+                    this.chunks.set(key, chunk);
+
+                    // --- NUEVO: GENERACIÓN DE MOBS POR CHUNK ---
+                    // 25% de probabilidad de generar animales en este chunk
+                    if (this.mobManager && Math.random() < 0.25) {
+                        let numMobs = Math.floor(Math.random() * 3) + 1; // De 1 a 3 animales
+                        const types = ['pig', 'sheep', 'cow', 'chicken'];
+                        let selectedType = types[Math.floor(Math.random() * types.length)]; // Manada del mismo tipo
+                        
+                        for(let i = 0; i < numMobs; i++) {
+                            let lx = Math.floor(Math.random() * CHUNK_WIDTH);
+                            let lz = Math.floor(Math.random() * CHUNK_DEPTH);
+                            
+                            // Buscar la superficie del chunk
+                            for (let y = CHUNK_HEIGHT - 2; y > WATER_LEVEL; y--) {
+                                if (chunk.getBlock(lx, y, lz) === BLOCKS.GRASS && chunk.getBlock(lx, y + 1, lz) === BLOCKS.AIR) {
+                                    let gx = cx * CHUNK_WIDTH + lx;
+                                    let gz = cz * CHUNK_DEPTH + lz;
+                                    this.mobManager.spawn(selectedType, gx, y + 1.5, gz);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    // -------------------------------------------
                 }
             }
         }
-
+        
         for (let [key, chunk] of this.chunks.entries()) {
-            let dx = Math.abs(chunk.cx - pcx);
-            let dz = Math.abs(chunk.cz - pcz);
+            let dx = Math.abs(chunk.cx - pcx), dz = Math.abs(chunk.cz - pcz);
             if (dx > UNLOAD_DISTANCE || dz > UNLOAD_DISTANCE) {
-                chunk.dispose();
-                this.chunks.delete(key);
+                chunk.dispose(); this.chunks.delete(key);
             } else if (chunk.isDirty) {
                 chunk.buildMesh(this.textureAtlas);
             }
